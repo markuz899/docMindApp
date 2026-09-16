@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 16% 5%;
+    --surface: 240 14% 7%;
+    --elevated: 240 13% 10%;
+    --foreground: 240 12% 94%;
+    --muted: 240 10% 16%;
+    --muted-foreground: 240 8% 60%;
+    --border: 240 12% 16%;
+    --input: 240 12% 14%;
+    --ring: 262 83% 64%;
+    --primary: 262 83% 64%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 12% 14%;
+    --secondary-foreground: 240 12% 90%;
+    --accent: 190 92% 52%;
+    --accent-foreground: 240 16% 6%;
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 66% 46%;
+    --warning: 38 92% 58%;
+    --radius: 0.7rem;
+  }
+
+  :root[data-accent='cyan'] {
+    --primary: 190 92% 52%;
+    --ring: 190 92% 52%;
+    --accent: 262 83% 64%;
+  }
+  :root[data-accent='amber'] {
+    --primary: 38 92% 56%;
+    --ring: 38 92% 56%;
+    --accent: 12 88% 58%;
+  }
+  :root[data-accent='emerald'] {
+    --primary: 152 66% 46%;
+    --ring: 152 66% 46%;
+    --accent: 190 92% 52%;
+  }
+
+  :root.light {
+    --background: 240 20% 98%;
+    --surface: 0 0% 100%;
+    --elevated: 240 20% 96%;
+    --foreground: 240 20% 12%;
+    --muted: 240 16% 92%;
+    --muted-foreground: 240 8% 40%;
+    --border: 240 14% 88%;
+    --input: 240 14% 92%;
+    --secondary: 240 16% 94%;
+    --secondary-foreground: 240 20% 20%;
+    --accent-foreground: 0 0% 100%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .panel {
+    @apply border border-border bg-surface/70 backdrop-blur-xl;
+  }
+
+  .glow-grid {
+    background-image:
+      radial-gradient(circle at 18% 12%, hsl(var(--primary) / 0.16), transparent 42%),
+      radial-gradient(circle at 82% 82%, hsl(var(--accent) / 0.12), transparent 46%),
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      44px 44px,
+      44px 44px;
+  }
+
+  .prose-docmind {
+    @apply text-[13.5px] leading-relaxed text-foreground/90;
+  }
+  .prose-docmind h1,
+  .prose-docmind h2,
+  .prose-docmind h3 {
+    @apply mb-2 mt-5 font-semibold tracking-tight text-foreground;
+  }
+  .prose-docmind h1 {
+    @apply text-lg;
+  }
+  .prose-docmind h2 {
+    @apply text-base;
+  }
+  .prose-docmind h3 {
+    @apply text-sm uppercase tracking-wider text-muted-foreground;
+  }
+  .prose-docmind p {
+    @apply my-2.5;
+  }
+  .prose-docmind ul,
+  .prose-docmind ol {
+    @apply my-2.5 space-y-1 pl-5;
+  }
+  .prose-docmind ul {
+    @apply list-disc;
+  }
+  .prose-docmind ol {
+    @apply list-decimal;
+  }
+  .prose-docmind a {
+    @apply text-primary underline underline-offset-2;
+  }
+  .prose-docmind code {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-accent;
+  }
+  .prose-docmind pre {
+    @apply my-3 overflow-x-auto rounded-lg border border-border bg-background/80 p-3;
+  }
+  .prose-docmind pre code {
+    @apply bg-transparent p-0 text-[12px] text-foreground/90;
+  }
+  .prose-docmind blockquote {
+    @apply my-3 border-l-2 border-primary/50 pl-3 text-muted-foreground;
+  }
+  .prose-docmind table {
+    @apply my-3 w-full border-collapse text-[12.5px];
+  }
+  .prose-docmind th,
+  .prose-docmind td {
+    @apply border border-border px-2 py-1 text-left;
+  }
+  .prose-docmind hr {
+    @apply my-4 border-border;
+  }
+}
+
+/* React Flow theming */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__edge-path {
+  stroke: hsl(var(--border));
+}
+.react-flow__handle {
+  opacity: 0;
+}

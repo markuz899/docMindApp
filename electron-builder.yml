@@ -1,0 +1,23 @@
+appId: dev.docmind.app
+productName: DocMind
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**
+  - package.json
+  - '!**/{.eslintrc,.editorconfig,.prettierrc}'
+asarUnpack:
+  - '**/*.node'
+  - node_modules/node-llama-cpp/**
+mac:
+  target:
+    - dir
+  category: public.app-category.developer-tools
+  identity: null
+win:
+  target: nsis
+linux:
+  target: AppImage
+  category: Development
+npmRebuild: false

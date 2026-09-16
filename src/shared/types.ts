@@ -1,0 +1,323 @@
+import { z } from 'zod'
+
+/* ------------------------------------------------------------------ */
+/* Query analysis                                                      */
+/* ------------------------------------------------------------------ */
+
+export const INTENTS = [
+  'question',
+  'bug_investigation',
+  'architecture',
+  'how_it_works',
+  'dependency',
+  'error',
+  'data_flow'
+] as const
+
+export const intentSchema = z.enum(INTENTS)
+export type Intent = z.infer<typeof intentSchema>
+
+export const queryAnalysisSchema = z.object({
+  originalQuery: z.string(),
+  symbols: z.array(z.string()),
+  keywords: z.array(z.string()),
+  intent: intentSchema
+})
+export type QueryAnalysis = z.infer<typeof queryAnalysisSchema>
+
+/* ------------------------------------------------------------------ */
+/* Retrieval                                                           */
+/* ------------------------------------------------------------------ */
+
+export interface ScoreBreakdown {
+  exactSymbol: number
+  heading: number
+  filename: number
+  fts: number
+  keyword: number
+  intent: number
+}
+
+export interface RetrievedSection {
+  sectionId: number
+  documentId: number
+  filename: string
+  relativePath: string
+  heading: string
+  headingPath: string
+  content: string
+  startLine: number
+  endLine: number
+  tokens: number
+  score: number
+  breakdown: ScoreBreakdown
+  matchedSymbols: string[]
+  selected: boolean
+}
+
+export interface Source {
+  sectionId: number
+  documentId: number
+  filename: string
+  relativePath: string
+  heading: string
+  headingPath: string
+  startLine: number
+  endLine: number
+  relevance: number
+  excerpt: string
+}
+
+export interface Timings {
+  analysisMs: number
+  searchMs: number
+  rankingMs: number
+  contextMs: number
+  generationMs: number
+  totalMs: number
+}
+
+export interface GenerationStats {
+  promptTokens: number
+  generatedTokens: number
+  tokensPerSecond: number
+  generationMs: number
+  provider: string
+  model: string
+}
+
+/* ------------------------------------------------------------------ */
+/* Pipeline events (main -> renderer, real activity only)              */
+/* ------------------------------------------------------------------ */
+
+export type PipelineEvent =
+  | { type: 'query_received'; runId: string; query: string; conversationId: number }
+  | { type: 'query_analyzed'; runId: string; analysis: QueryAnalysis; durationMs: number }
+  | { type: 'search_started'; runId: string; sections: number; documents: number; ftsQuery: string }
+  | {
+      type: 'search_match'
+      runId: string
+      sectionId: number
+      documentId: number
+      document: string
+      heading: string
+      score: number
+      via: 'exact' | 'fts'
+    }
+  | { type: 'search_completed'; runId: string; candidates: number; durationMs: number }
+  | { type: 'ranking_started'; runId: string; candidates: number }
+  | { type: 'ranking_completed'; runId: string; ranked: RetrievedSection[]; durationMs: number }
+  | {
+      type: 'context_selected'
+      runId: string
+      sections: number
+      characters: number
+      estimatedTokens: number
+      sources: Source[]
+    }
+  | { type: 'generation_started'; runId: string; provider: string; model: string }
+  | { type: 'generation_token'; runId: string; token: string }
+  | { type: 'generation_completed'; runId: string; stats: GenerationStats; timings: Timings }
+  | { type: 'cancelled'; runId: string; stage: string }
+  | { type: 'error'; runId: string; stage: string; message: string }
+
+export type PipelineEventType = PipelineEvent['type']
+
+/* ------------------------------------------------------------------ */
+/* Indexing                                                            */
+/* ------------------------------------------------------------------ */
+
+export interface IndexReport {
+  projectId: number
+  added: number
+  changed: number
+  deleted: number
+  unchanged: number
+  sections: number
+  words: number
+  durationMs: number
+  errors: { relativePath: string; message: string }[]
+}
+
+export type IndexProgress =
+  | { phase: 'scanning'; scanned: number }
+  | { phase: 'parsing'; file: string; done: number; total: number }
+  | { phase: 'done'; report: IndexReport }
+
+export interface ProjectStats {
+  documents: number
+  sections: number
+  words: number
+  lastIndexedAt: number | null
+}
+
+export interface ProjectSummary {
+  id: number
+  name: string
+  path: string
+  createdAt: number
+  updatedAt: number
+  lastIndexedAt: number | null
+  stats: ProjectStats
+}
+
+export interface DocumentSummary {
+  id: number
+  relativePath: string
+  filename: string
+  sections: number
+  words: number
+  updatedAt: number
+}
+
+export interface SectionView {
+  id: number
+  documentId: number
+  heading: string
+  headingPath: string
+  content: string
+  startLine: number
+  endLine: number
+  tokens: number
+}
+
+export interface DocumentDetail {
+  id: number
+  relativePath: string
+  filename: string
+  content: string
+  sections: SectionView[]
+}
+
+/* ------------------------------------------------------------------ */
+/* Conversations                                                       */
+/* ------------------------------------------------------------------ */
+
+export interface ConversationSummary {
+  id: number
+  projectId: number
+  title: string
+  createdAt: number
+  updatedAt: number
+  messageCount: number
+}
+
+export interface ChatMessage {
+  id: number
+  conversationId: number
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: number
+  sources: Source[]
+  timings: Timings | null
+  stats: GenerationStats | null
+  analysis: QueryAnalysis | null
+  error: string | null
+}
+
+export interface AskResult {
+  runId: string
+  conversationId: number
+  userMessageId: number
+  assistantMessageId: number
+  answer: string
+  sources: Source[]
+  timings: Timings
+  stats: GenerationStats | null
+  analysis: QueryAnalysis
+}
+
+/* ------------------------------------------------------------------ */
+/* Models                                                              */
+/* ------------------------------------------------------------------ */
+
+export type ModelState = 'unloaded' | 'loading' | 'ready' | 'generating' | 'error'
+
+export interface ModelStatus {
+  state: ModelState
+  provider: 'local-gguf' | 'ollama' | 'none'
+  model: string
+  detail: string
+  contextSize: number
+  lastError: string | null
+}
+
+export interface GgufFileInfo {
+  path: string
+  filename: string
+  sizeBytes: number
+  contextSize: number | null
+  architecture: string | null
+  parameters: string | null
+  valid: boolean
+  problem: string | null
+}
+
+export interface OllamaModelInfo {
+  name: string
+  sizeBytes: number
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings                                                            */
+/* ------------------------------------------------------------------ */
+
+export const retrievalSettingsSchema = z.object({
+  maxSections: z.number().int().min(1).max(20).default(6),
+  minSections: z.number().int().min(1).max(20).default(3),
+  maxContextChars: z.number().int().min(1000).max(200_000).default(14_000),
+  candidateLimit: z.number().int().min(10).max(500).default(80),
+  exactMatchBoost: z.number().min(0).max(10).default(3.5),
+  headingBoost: z.number().min(0).max(10).default(2),
+  filenameBoost: z.number().min(0).max(10).default(1),
+  ftsWeight: z.number().min(0).max(10).default(1.5),
+  keywordWeight: z.number().min(0).max(10).default(1)
+})
+export type RetrievalSettings = z.infer<typeof retrievalSettingsSchema>
+
+export const modelSettingsSchema = z.object({
+  provider: z.enum(['local-gguf', 'ollama', 'none']).default('none'),
+  modelPath: z.string().default(''),
+  contextSize: z.number().int().min(512).max(131_072).default(4096),
+  temperature: z.number().min(0).max(2).default(0.2),
+  maxTokens: z.number().int().min(32).max(8192).default(768),
+  threads: z.number().int().min(0).max(64).default(0),
+  gpuLayers: z.number().int().min(-1).max(200).default(-1),
+  ollamaUrl: z.string().default('http://127.0.0.1:11434'),
+  ollamaModel: z.string().default('')
+})
+export type ModelSettings = z.infer<typeof modelSettingsSchema>
+
+export const appearanceSettingsSchema = z.object({
+  theme: z.enum(['dark', 'light']).default('dark'),
+  accent: z.enum(['violet', 'cyan', 'amber', 'emerald']).default('violet'),
+  compact: z.boolean().default(false),
+  showGraph: z.boolean().default(true)
+})
+export type AppearanceSettings = z.infer<typeof appearanceSettingsSchema>
+
+export const generalSettingsSchema = z.object({
+  reindexOnOpen: z.boolean().default(true),
+  extensions: z.array(z.string()).default(['.md', '.mdx', '.txt']),
+  ignoredDirectories: z
+    .array(z.string())
+    .default(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage', 'vendor']),
+  maxFileSizeKb: z.number().int().min(16).max(20_000).default(2048)
+})
+export type GeneralSettings = z.infer<typeof generalSettingsSchema>
+
+export const settingsSchema = z.object({
+  general: generalSettingsSchema.default({}),
+  retrieval: retrievalSettingsSchema.default({}),
+  model: modelSettingsSchema.default({}),
+  appearance: appearanceSettingsSchema.default({})
+})
+export type Settings = z.infer<typeof settingsSchema>
+
+export const DEFAULT_SETTINGS: Settings = settingsSchema.parse({})
+
+/* ------------------------------------------------------------------ */
+/* IPC envelope                                                        */
+/* ------------------------------------------------------------------ */
+
+export type Result<T> = { ok: true; data: T } | { ok: false; error: string; code?: string }
