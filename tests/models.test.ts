@@ -106,6 +106,11 @@ describe('registry url resolution', () => {
   it('falls back to the official catalog when nothing is configured', () => {
     expect(resolveRegistryUrl('', {})).toBe(DEFAULT_REGISTRY_URL)
   })
+
+  it('ships a real https catalog url, not a placeholder', () => {
+    expect(DEFAULT_REGISTRY_URL).toMatch(/^https:\/\//)
+    expect(DEFAULT_REGISTRY_URL).not.toMatch(/example\.(com|org)|changeme|TODO|your-/i)
+  })
 })
 
 describe('registry cache and offline behaviour', () => {
