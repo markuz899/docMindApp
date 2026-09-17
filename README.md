@@ -468,15 +468,19 @@ never deletes your file.
 
 ### Model registry
 
-There is no built-in registry URL: a placeholder would mean a download button
-that fails. Resolution order is Settings → `DOCMIND_MODEL_REGISTRY_URL` → empty
-catalog.
+Resolution order is Settings → `DOCMIND_MODEL_REGISTRY_URL` → the built-in
+default, the official DocMind Lite 0.5B (v2) catalog published on Hugging
+Face (`markuz89/docmind-lite-0.5b`). A fresh clone works out of the box with
+no configuration.
 
 ```bash
 DOCMIND_MODEL_REGISTRY_URL=https://…/manifest.json npm run dev
 # development: a local fixture works too
 DOCMIND_MODEL_REGISTRY_URL=$PWD/tests/fixtures/model-registry.json npm run dev
 ```
+
+Override it in Settings → AI Models → Advanced → Model registry to point at a
+different catalog.
 
 See **[docs/MODEL_PUBLISHING.md](docs/MODEL_PUBLISHING.md)** for the manifest
 format and the publishing workflow, including the Hugging Face hosting

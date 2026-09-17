@@ -150,13 +150,14 @@ in with estimates.
 
 ## Pointing DocMind at a registry
 
-There is no built-in default URL: shipping a placeholder would mean shipping a
-download button that fails. Resolution order:
+Resolution order:
 
 1. **Settings** — AI Models → Advanced → Model registry.
 2. **Environment** — `DOCMIND_MODEL_REGISTRY_URL`.
-3. Neither set → the catalog is empty and the app says so. Everything else
-   (custom GGUF, Ollama, subscription providers, retrieval) keeps working.
+3. **Built-in default** — `DEFAULT_REGISTRY_URL` in `src/main/models/registry.ts`,
+   currently the official DocMind Lite 0.5B (v2) catalog on Hugging Face
+   (`markuz89/docmind-lite-0.5b`). Update this constant when a new official
+   model is published, so a fresh clone still works with no configuration.
 
 For development, the resolver also accepts a `file://` URL or an absolute path,
 so the test fixture can stand in for a real registry:

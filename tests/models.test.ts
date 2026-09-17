@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { downloadModel, DownloadError } from '@main/models/download'
 import { detectHardware, modelFit } from '@main/models/hardware'
-import { loadRegistry, resolveRegistryUrl, REGISTRY_ENV_VAR } from '@main/models/registry'
+import { loadRegistry, resolveRegistryUrl, REGISTRY_ENV_VAR, DEFAULT_REGISTRY_URL } from '@main/models/registry'
 import {
   deleteInstalled,
   findInstalled,
@@ -103,8 +103,8 @@ describe('registry url resolution', () => {
     expect(resolveRegistryUrl('  ', { [REGISTRY_ENV_VAR]: 'https://b/manifest.json' })).toBe('https://b/manifest.json')
   })
 
-  it('is empty when nothing is configured, instead of a placeholder url', () => {
-    expect(resolveRegistryUrl('', {})).toBe('')
+  it('falls back to the official catalog when nothing is configured', () => {
+    expect(resolveRegistryUrl('', {})).toBe(DEFAULT_REGISTRY_URL)
   })
 })
 

@@ -13,12 +13,18 @@ export interface RegistryOptions {
 export const REGISTRY_ENV_VAR = 'DOCMIND_MODEL_REGISTRY_URL'
 
 /**
- * Settings win, then the environment. There is deliberately no built-in
- * default: shipping a placeholder URL would mean shipping a broken download
- * button. See docs/MODEL_PUBLISHING.md for pointing this at the real registry.
+ * The official DocMind Lite 0.5B (v2) catalog. Published and measured -- see
+ * docs/MODEL_PUBLISHING.md -- so defaulting to it is a real download button,
+ * not the placeholder this used to deliberately avoid shipping.
+ */
+export const DEFAULT_REGISTRY_URL =
+  'https://huggingface.co/markuz89/docmind-lite-0.5b/resolve/main/manifest.json'
+
+/**
+ * Settings win, then the environment, then the built-in official catalog.
  */
 export function resolveRegistryUrl(configured: string, env: NodeJS.ProcessEnv = process.env): string {
-  return configured.trim() || (env[REGISTRY_ENV_VAR] ?? '').trim()
+  return configured.trim() || (env[REGISTRY_ENV_VAR] ?? '').trim() || DEFAULT_REGISTRY_URL
 }
 
 interface CacheFile {
