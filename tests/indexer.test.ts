@@ -116,7 +116,11 @@ describe('incremental reindex', () => {
     db.close()
   })
 
-  it('records an unreadable file as an error instead of aborting the run', async () => {
+  // chmod(0o000) only toggles the read-only flag on Windows, so the file stays
+  // readable and gets indexed; there is no portable way to stage this there.
+  it.skipIf(process.platform === 'win32')(
+    'records an unreadable file as an error instead of aborting the run',
+    async () => {
     const db = memoryDb()
     const root = await fixture({ 'ok.md': '# Ok\n\nbody', 'broken.md': 'x' })
     await fs.chmod(path.join(root, 'broken.md'), 0o000)
@@ -129,7 +133,8 @@ describe('incremental reindex', () => {
     expect(report.errors.some((e) => e.relativePath === 'broken.md')).toBe(true)
     expect(documentsByPath(db, project.id).has('ok.md')).toBe(true)
     db.close()
-  })
+    }
+  )
 
   it('reports an empty folder as zero documents rather than failing', async () => {
     const db = memoryDb()

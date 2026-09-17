@@ -107,10 +107,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          set -u
+          printf '%s\n' \
+            'Unsigned builds: macOS needs its quarantine flag cleared and Windows needs' \
+            "SmartScreen's Run anyway. The README has the exact steps." > notes.md
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/* --clobber
+            gh release upload "$TAG" artifacts/* --clobber 2>gh-error.txt || rc=$?
           else
-            gh release create "$TAG" artifacts/* \
-              --title "DocMind $TAG" \
-              --notes "Unsigned builds. macOS needs the quarantine flag cleared and Windows needs SmartScreen's \"Run anyway\" - see the README for the exact steps."
+            gh release create "$TAG" artifacts/* --title "DocMind $TAG" --notes-file notes.md 2>gh-error.txt || rc=$?
           fi
+
+          # Job logs need admin rights to read, annotations do not: surface the
+          # real reason so a failure here is diagnosable from the API.
+          if [ "${rc:-0}" -ne 0 ]; then
+            echo "::error::gh release failed ($rc): $(tr '\n' ' ' < gh-error.txt | head -c 800)"
+            exit "$rc"
+          fi
+          cat gh-error.txt
