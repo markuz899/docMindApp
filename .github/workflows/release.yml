@@ -99,28 +99,54 @@ jobs:
           pattern: installers-*
           merge-multiple: true
 
-      - name: List what will be published
-        run: ls -lh artifacts
+      # Both gh and a dedicated upload action failed here with no usable
+      # message, so this is split into two steps on purpose: creating the
+      # release proves the token can write, and uploading one file at a time
+      # names the file that fails. Notices become check annotations, which are
+      # readable from the API without the admin rights job logs need.
+      - name: Inventory
+        run: |
+          for f in artifacts/*; do
+            echo "::notice::artifact $(basename "$f") $(du -m "$f" | cut -f1) MB"
+          done
 
-      # gh release create uploads assets sequentially and stalled past twenty
-      # minutes on ~480 MB twice, while downloading the same files took two.
-      # This action talks to the same API with retries and handles large
-      # binaries, which is the one thing gh would not do reliably here.
-      - name: Publish the release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: DocMind ${{ github.ref_name }}
-          files: artifacts/*
-          fail_on_unmatched_files: true
-          body: |
-            Unsigned builds. macOS needs its quarantine flag cleared and Windows
-            needs SmartScreen's "Run anyway" — the README has the exact steps.
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          printf '%s\n' \
+            'Unsigned builds: macOS needs its quarantine flag cleared and Windows' \
+            "needs SmartScreen's Run anyway. The README has the exact steps." \
+            '' \
+            'Intel Macs are not prebuilt; npm run dist on one produces a build.' > notes.md
 
-            | Platform | File |
-            |---|---|
-            | macOS (Apple Silicon) | `.dmg` |
-            | Windows | `.exe` |
-            | Linux | `.AppImage` / `.deb` |
+          if gh release view "$TAG" </dev/null >/dev/null 2>&1; then
+            echo "::notice::release $TAG already exists"
+            exit 0
+          fi
+          if ! timeout 5m gh release create "$TAG" \
+                 --title "DocMind $TAG" --notes-file notes.md \
+                 </dev/null 2>err.txt; then
+            echo "::error::could not create the release: $(tr '\n' ' ' < err.txt | head -c 500)"
+            exit 1
+          fi
+          echo "::notice::release $TAG created"
 
-            Intel Macs are not prebuilt; `npm run dist` on one produces a build.
+      - name: Upload the installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          failed=0
+          for f in artifacts/*; do
+            name=$(basename "$f")
+            start=$SECONDS
+            if timeout 15m gh release upload "$TAG" "$f" --clobber </dev/null 2>err.txt; then
+              echo "::notice::uploaded $name in $((SECONDS - start))s"
+            else
+              failed=1
+              echo "::error::upload failed for $name after $((SECONDS - start))s: $(tr '\n' ' ' < err.txt | head -c 400)"
+            fi
+          done
+          exit "$failed"
