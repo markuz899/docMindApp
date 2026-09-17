@@ -13,6 +13,7 @@ import { Settings } from '@/pages/Settings'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
 import { useGraphStore } from '@/stores/graph'
+import { useModelsStore } from '@/stores/models'
 
 function Workspace(): JSX.Element {
   const route = useAppStore((s) => s.route)
@@ -53,10 +54,12 @@ export function App(): JSX.Element {
       if (progress.phase === 'done') void refreshProject()
     })
     const offModel = window.docmind.events.onModelStatus(setModelStatus)
+    const offDownload = window.docmind.events.onModelDownload(useModelsStore.getState().applyDownload)
     return () => {
       offPipeline()
       offIndex()
       offModel()
+      offDownload()
     }
   }, [applyGraphEvent, applyChatEvent, setIndexing, setModelStatus, refreshProject])
 

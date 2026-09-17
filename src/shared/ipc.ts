@@ -4,13 +4,18 @@ import type {
   ConversationSummary,
   DocumentDetail,
   DocumentSummary,
+  DownloadProgress,
   GgufFileInfo,
   IndexProgress,
   IndexReport,
+  ManagedModel,
+  ModelCatalog,
   ModelStatus,
   OllamaModelInfo,
   PipelineEvent,
   ProjectSummary,
+  ProviderId,
+  RegistryState,
   Result,
   Settings
 } from './types'
@@ -38,11 +43,22 @@ export const CHANNELS = {
   modelOllamaList: 'model:ollama-list',
   modelLoad: 'model:load',
   modelUnload: 'model:unload',
+  modelCatalog: 'model:catalog',
+  modelRegistryRefresh: 'model:registry-refresh',
+  modelDownload: 'model:download',
+  modelDownloadCancel: 'model:download-cancel',
+  modelDelete: 'model:delete',
+  modelSelect: 'model:select',
+  modelImportCustom: 'model:import-custom',
+  modelForgetCustom: 'model:forget-custom',
+  modelAcknowledge: 'model:acknowledge-privacy',
+  modelRevealStore: 'model:reveal-store',
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   eventPipeline: 'event:pipeline',
   eventIndex: 'event:index',
-  eventModelStatus: 'event:model-status'
+  eventModelStatus: 'event:model-status',
+  eventModelDownload: 'event:model-download'
 } as const
 
 export interface AppInfo {
@@ -55,6 +71,18 @@ export interface AppInfo {
 export interface AskInput {
   conversationId: number | null
   question: string
+}
+
+/** Everything needed to switch the active provider in one round trip. */
+export interface SelectModelInput {
+  provider: ProviderId
+  /** Installed DocMind model id, for provider "local-gguf". */
+  managedModelId?: string
+  /** Custom GGUF path, for provider "local-gguf". */
+  modelPath?: string
+  /** Tag, for provider "ollama". */
+  ollamaModel?: string
+  ollamaUrl?: string
 }
 
 export interface DocMindApi {
@@ -89,6 +117,16 @@ export interface DocMindApi {
     ollamaModels(baseUrl: string): Promise<Result<OllamaModelInfo[]>>
     load(): Promise<Result<ModelStatus>>
     unload(): Promise<Result<ModelStatus>>
+    catalog(refresh?: boolean): Promise<Result<ModelCatalog>>
+    refreshRegistry(): Promise<Result<RegistryState>>
+    download(modelId: string): Promise<Result<ManagedModel>>
+    cancelDownload(modelId: string): Promise<Result<boolean>>
+    remove(modelId: string): Promise<Result<null>>
+    select(input: SelectModelInput): Promise<Result<ModelStatus>>
+    importCustom(): Promise<Result<GgufFileInfo | null>>
+    forgetCustom(filePath: string): Promise<Result<null>>
+    acknowledgePrivacy(provider: ProviderId): Promise<Result<Settings>>
+    revealStore(): Promise<Result<null>>
   }
   settings: {
     get(): Promise<Result<Settings>>
@@ -98,5 +136,6 @@ export interface DocMindApi {
     onPipeline(handler: (event: PipelineEvent) => void): () => void
     onIndex(handler: (progress: IndexProgress) => void): () => void
     onModelStatus(handler: (status: ModelStatus) => void): () => void
+    onModelDownload(handler: (progress: DownloadProgress) => void): () => void
   }
 }

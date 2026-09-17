@@ -1,20 +1,26 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { app, dialog, ipcMain, shell, type BrowserWindow } from 'electron'
-import { CHANNELS, type AppInfo, type AskInput } from '@shared/ipc'
-import type {
-  AskResult,
-  ChatMessage,
-  ConversationSummary,
-  DocumentDetail,
-  DocumentSummary,
-  GgufFileInfo,
-  IndexReport,
-  ModelStatus,
-  OllamaModelInfo,
-  ProjectSummary,
-  Result,
-  Settings
+import { CHANNELS, type AppInfo, type AskInput, type SelectModelInput } from '@shared/ipc'
+import {
+  PROVIDER_KIND,
+  PROVIDER_LABEL,
+  type AskResult,
+  type ChatMessage,
+  type ConversationSummary,
+  type DocumentDetail,
+  type DocumentSummary,
+  type GgufFileInfo,
+  type IndexReport,
+  type ManagedModel,
+  type ModelCatalog,
+  type ModelStatus,
+  type OllamaModelInfo,
+  type ProjectSummary,
+  type ProviderId,
+  type RegistryState,
+  type Result,
+  type Settings
 } from '@shared/types'
 import {
   createConversation,
@@ -35,6 +41,7 @@ import { assertReadableDirectory, readTextFile } from '../filesystem/scanner'
 import { indexProject } from '../ingestion/indexer'
 import { inspectGguf } from '../llm/gguf'
 import { listOllamaModels } from '../llm/ollama'
+import { findInstalled } from '../models/store'
 import { runAsk } from '../retrieval/pipeline'
 import type { Services } from '../services'
 
@@ -64,6 +71,59 @@ export function registerIpc(services: Services, getWindow: () => BrowserWindow |
     const project = getProject(services.db, id)
     if (!project) throw new Error(`Project ${id} no longer exists.`)
     return { ...project, stats: projectStats(services.db, id) }
+  }
+
+  /**
+   * Switching provider is the one place where a half-applied state would be
+   * dangerous: the toolbar would claim a provider is active while nothing can
+   * answer. So the new provider has to load and pass a health check, and any
+   * failure rolls the settings back to what worked before.
+   */
+  const selectModel = async (input: SelectModelInput): Promise<ModelStatus> => {
+    const previous = services.settings()
+
+    if (PROVIDER_KIND[input.provider] === 'subscription' && !previous.providers.privacyAcknowledged.includes(input.provider)) {
+      throw new Error(
+        `Confirm the ${PROVIDER_LABEL[input.provider]} privacy notice on the AI Models page before activating it.`
+      )
+    }
+
+    const patch: Record<string, unknown> = { provider: input.provider }
+    if (input.provider === 'local-gguf') {
+      if (input.managedModelId) {
+        const managed = findInstalled(services.modelStore.modelsDir, input.managedModelId)
+        if (!managed) throw new Error(`${input.managedModelId} is not installed.`)
+        patch.modelPath = managed.filePath
+        patch.managedModelId = managed.id
+        patch.contextSize = Math.min(previous.model.contextSize, managed.contextSize)
+      } else if (input.modelPath) {
+        patch.modelPath = input.modelPath
+        patch.managedModelId = ''
+      } else {
+        throw new Error('Pick a downloaded model or a custom GGUF file first.')
+      }
+    }
+    if (input.provider === 'ollama') {
+      if (!input.ollamaModel) throw new Error('Pick an Ollama model first.')
+      patch.ollamaModel = input.ollamaModel
+      if (input.ollamaUrl) patch.ollamaUrl = input.ollamaUrl
+    }
+
+    await services.models.unload()
+    await services.updateSettings({ model: patch })
+    if (input.provider === 'none') return services.models.status()
+
+    try {
+      await services.models.ensureReady()
+      if (!(await services.models.healthCheck())) {
+        throw new Error(`${PROVIDER_LABEL[input.provider]} loaded but did not pass its health check.`)
+      }
+      return services.models.status()
+    } catch (error) {
+      await services.models.unload()
+      await services.updateSettings({ model: previous.model })
+      throw error
+    }
   }
 
   const openProject = async (folder: string): Promise<ProjectSummary> => {
@@ -289,6 +349,95 @@ export function registerIpc(services: Services, getWindow: () => BrowserWindow |
     safe<ModelStatus>(async () => {
       await services.models.unload()
       return services.models.status()
+    })
+  )
+
+  ipcMain.handle(CHANNELS.modelCatalog, (_e, refresh: boolean) =>
+    safe<ModelCatalog>(() => services.modelStore.catalog(refresh))
+  )
+
+  ipcMain.handle(CHANNELS.modelRegistryRefresh, () =>
+    safe<RegistryState>(() => services.modelStore.registry(true))
+  )
+
+  ipcMain.handle(CHANNELS.modelDownload, (_e, modelId: string) =>
+    safe<ManagedModel>(() =>
+      services.modelStore.download(modelId, (progress) => send(CHANNELS.eventModelDownload, progress))
+    )
+  )
+
+  ipcMain.handle(CHANNELS.modelDownloadCancel, (_e, modelId: string) =>
+    safe<boolean>(() => services.modelStore.cancelDownload(modelId))
+  )
+
+  ipcMain.handle(CHANNELS.modelDelete, (_e, modelId: string) =>
+    safe<null>(async () => {
+      const installed = findInstalled(services.modelStore.modelsDir, modelId)
+      if (!installed) throw new Error(`${modelId} is not installed.`)
+      // Never delete the weights out from under a loaded provider.
+      if (services.settings().model.modelPath === installed.filePath) {
+        await services.models.unload()
+        await services.updateSettings({ model: { provider: 'none', modelPath: '', managedModelId: '' } })
+      }
+      services.modelStore.remove(modelId)
+      return null
+    })
+  )
+
+  ipcMain.handle(CHANNELS.modelSelect, (_e, input: SelectModelInput) =>
+    safe<ModelStatus>(() => selectModel(input))
+  )
+
+  ipcMain.handle(CHANNELS.modelImportCustom, () =>
+    safe<GgufFileInfo | null>(async () => {
+      const window = getWindow()
+      const options = {
+        title: 'Import a GGUF model',
+        properties: ['openFile' as const],
+        filters: [{ name: 'GGUF model', extensions: ['gguf'] }]
+      }
+      const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+      const file = result.filePaths[0]
+      if (result.canceled || !file) return null
+
+      const info = await inspectGguf(file)
+      if (!info.valid) return info
+      // The file stays where the user put it; DocMind only remembers the path.
+      const paths = services.settings().providers.customModelPaths
+      if (!paths.includes(file)) {
+        await services.updateSettings({ providers: { customModelPaths: [...paths, file] } })
+      }
+      return info
+    })
+  )
+
+  ipcMain.handle(CHANNELS.modelForgetCustom, (_e, filePath: string) =>
+    safe<null>(async () => {
+      const settings = services.settings()
+      await services.updateSettings({
+        providers: { customModelPaths: settings.providers.customModelPaths.filter((p) => p !== filePath) }
+      })
+      if (settings.model.modelPath === filePath) {
+        await services.models.unload()
+        await services.updateSettings({ model: { provider: 'none', modelPath: '', managedModelId: '' } })
+      }
+      return null
+    })
+  )
+
+  ipcMain.handle(CHANNELS.modelAcknowledge, (_e, provider: ProviderId) =>
+    safe<Settings>(() => {
+      const current = services.settings().providers.privacyAcknowledged
+      if (current.includes(provider)) return services.settings()
+      return services.updateSettings({ providers: { privacyAcknowledged: [...current, provider] } })
+    })
+  )
+
+  ipcMain.handle(CHANNELS.modelRevealStore, () =>
+    safe<null>(async () => {
+      await fs.mkdir(services.modelStore.modelsDir, { recursive: true })
+      shell.showItemInFolder(services.modelStore.modelsDir)
+      return null
     })
   )
 

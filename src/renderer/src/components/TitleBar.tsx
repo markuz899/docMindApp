@@ -1,31 +1,10 @@
-import { Cpu, FolderOpen, Loader2, RefreshCw } from 'lucide-react'
+import { FolderOpen, Loader2, RefreshCw } from 'lucide-react'
+import { ProviderSelector } from '@/components/ProviderSelector'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app'
 
-const STATE_COLOR: Record<string, string> = {
-  ready: 'bg-success',
-  generating: 'bg-primary',
-  loading: 'bg-warning',
-  error: 'bg-destructive',
-  unloaded: 'bg-muted-foreground/60'
-}
-
 export function TitleBar(): JSX.Element {
-  const { project, modelStatus, busy, reindex, openFolder, setRoute } = useAppStore()
-
-  const label =
-    modelStatus.state === 'generating'
-      ? 'Generating…'
-      : modelStatus.state === 'loading'
-        ? 'Loading model…'
-        : modelStatus.state === 'ready'
-          ? `Local AI · ${modelStatus.model}`
-          : modelStatus.provider === 'none'
-            ? 'No model'
-            : modelStatus.lastError
-              ? 'Model error'
-              : modelStatus.model || 'No model'
+  const { project, busy, reindex, openFolder, setRoute } = useAppStore()
 
   return (
     <header className="drag-region flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 pl-[92px] pr-3 backdrop-blur-xl">
@@ -58,22 +37,7 @@ export function TitleBar(): JSX.Element {
           <FolderOpen className="h-3.5 w-3.5" />
           Open folder
         </Button>
-        <button
-          type="button"
-          onClick={() => setRoute('models')}
-          className="no-drag flex items-center gap-2 rounded-full border border-border bg-elevated/70 px-3 py-1.5 text-[11.5px] transition-colors hover:border-primary/40"
-          title={modelStatus.lastError ?? modelStatus.detail}
-        >
-          <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="max-w-[190px] truncate">{label}</span>
-          <span
-            className={cn(
-              'h-1.5 w-1.5 rounded-full',
-              STATE_COLOR[modelStatus.state] ?? 'bg-muted-foreground/60',
-              modelStatus.state === 'generating' && 'animate-pulse'
-            )}
-          />
-        </button>
+        <ProviderSelector />
       </div>
     </header>
   )

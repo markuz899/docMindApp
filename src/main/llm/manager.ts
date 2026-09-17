@@ -1,4 +1,6 @@
-import type { ModelSettings, ModelState, ModelStatus } from '@shared/types'
+import { DEFAULT_SETTINGS, PROVIDER_LABEL, type ModelSettings, type ModelState, type ModelStatus, type ProviderSettings } from '@shared/types'
+import { ClaudeCodeCliProvider } from './claude-code'
+import { CodexCliProvider } from './codex'
 import { LocalGGUFProvider } from './gguf'
 import { OllamaProvider } from './ollama'
 import { LLMError, type GenerateRequest, type GenerationEvent, type LLMProvider } from './types'
@@ -9,12 +11,14 @@ type Listener = (status: ModelStatus) => void
 export class ModelManager {
   private provider: LLMProvider | null = null
   private settings: ModelSettings
+  private providers: ProviderSettings
   private state: ModelState = 'unloaded'
   private lastError: string | null = null
   private listeners = new Set<Listener>()
 
-  constructor(settings: ModelSettings) {
+  constructor(settings: ModelSettings, providers: ProviderSettings = DEFAULT_SETTINGS.providers) {
     this.settings = settings
+    this.providers = providers
   }
 
   onStatusChange(listener: Listener): () => void {
@@ -33,21 +37,34 @@ export class ModelManager {
     this.emit()
   }
 
+  /** Shown before a provider is loaded, so the toolbar is never blank. */
+  private fallbackModelName(): string {
+    if (this.settings.provider === 'ollama') return this.settings.ollamaModel
+    if (this.settings.provider === 'codex-cli') return this.providers.codexModel || PROVIDER_LABEL['codex-cli']
+    if (this.settings.provider === 'claude-code-cli') {
+      return this.providers.claudeModel || PROVIDER_LABEL['claude-code-cli']
+    }
+    return ''
+  }
+
   status(): ModelStatus {
     const description = this.provider?.describe()
     return {
       state: this.state,
       provider: this.settings.provider,
-      model: description?.model ?? (this.settings.provider === 'ollama' ? this.settings.ollamaModel : ''),
+      model: description?.model ?? this.fallbackModelName(),
       detail: description?.detail ?? '',
       contextSize: description?.contextSize ?? this.settings.contextSize,
       lastError: this.lastError
     }
   }
 
-  async applySettings(settings: ModelSettings): Promise<void> {
-    const changed = JSON.stringify(settings) !== JSON.stringify(this.settings)
+  async applySettings(settings: ModelSettings, providers: ProviderSettings = this.providers): Promise<void> {
+    const changed =
+      JSON.stringify(settings) !== JSON.stringify(this.settings) ||
+      JSON.stringify(providers) !== JSON.stringify(this.providers)
     this.settings = settings
+    this.providers = providers
     if (changed) {
       await this.unload()
     }
@@ -57,7 +74,9 @@ export class ModelManager {
   private build(): LLMProvider {
     if (this.settings.provider === 'local-gguf') return new LocalGGUFProvider(this.settings)
     if (this.settings.provider === 'ollama') return new OllamaProvider(this.settings)
-    throw new LLMError('No local model is configured. Open the Models page to pick one.', 'no_model')
+    if (this.settings.provider === 'codex-cli') return new CodexCliProvider(this.providers)
+    if (this.settings.provider === 'claude-code-cli') return new ClaudeCodeCliProvider(this.providers)
+    throw new LLMError('No model is configured. Open the AI Models page to pick one.', 'no_model')
   }
 
   async ensureReady(): Promise<LLMProvider> {

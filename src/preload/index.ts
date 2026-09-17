@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { CHANNELS, type AskInput, type DocMindApi } from '@shared/ipc'
-import type { IndexProgress, ModelStatus, PipelineEvent } from '@shared/types'
+import { CHANNELS, type AskInput, type DocMindApi, type SelectModelInput } from '@shared/ipc'
+import type { DownloadProgress, IndexProgress, ModelStatus, PipelineEvent, ProviderId } from '@shared/types'
 
 function subscribe<T>(channel: string, handler: (payload: T) => void): () => void {
   const listener = (_event: IpcRendererEvent, payload: T): void => handler(payload)
@@ -41,7 +41,17 @@ const api: DocMindApi = {
     inspect: (filePath: string) => ipcRenderer.invoke(CHANNELS.modelInspect, filePath),
     ollamaModels: (baseUrl: string) => ipcRenderer.invoke(CHANNELS.modelOllamaList, baseUrl),
     load: () => ipcRenderer.invoke(CHANNELS.modelLoad),
-    unload: () => ipcRenderer.invoke(CHANNELS.modelUnload)
+    unload: () => ipcRenderer.invoke(CHANNELS.modelUnload),
+    catalog: (refresh?: boolean) => ipcRenderer.invoke(CHANNELS.modelCatalog, refresh ?? false),
+    refreshRegistry: () => ipcRenderer.invoke(CHANNELS.modelRegistryRefresh),
+    download: (modelId: string) => ipcRenderer.invoke(CHANNELS.modelDownload, modelId),
+    cancelDownload: (modelId: string) => ipcRenderer.invoke(CHANNELS.modelDownloadCancel, modelId),
+    remove: (modelId: string) => ipcRenderer.invoke(CHANNELS.modelDelete, modelId),
+    select: (input: SelectModelInput) => ipcRenderer.invoke(CHANNELS.modelSelect, input),
+    importCustom: () => ipcRenderer.invoke(CHANNELS.modelImportCustom),
+    forgetCustom: (filePath: string) => ipcRenderer.invoke(CHANNELS.modelForgetCustom, filePath),
+    acknowledgePrivacy: (provider: ProviderId) => ipcRenderer.invoke(CHANNELS.modelAcknowledge, provider),
+    revealStore: () => ipcRenderer.invoke(CHANNELS.modelRevealStore)
   },
   settings: {
     get: () => ipcRenderer.invoke(CHANNELS.settingsGet),
@@ -50,7 +60,9 @@ const api: DocMindApi = {
   events: {
     onPipeline: (handler: (event: PipelineEvent) => void) => subscribe(CHANNELS.eventPipeline, handler),
     onIndex: (handler: (progress: IndexProgress) => void) => subscribe(CHANNELS.eventIndex, handler),
-    onModelStatus: (handler: (status: ModelStatus) => void) => subscribe(CHANNELS.eventModelStatus, handler)
+    onModelStatus: (handler: (status: ModelStatus) => void) => subscribe(CHANNELS.eventModelStatus, handler),
+    onModelDownload: (handler: (progress: DownloadProgress) => void) =>
+      subscribe(CHANNELS.eventModelDownload, handler)
   }
 }
 

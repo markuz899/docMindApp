@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "docmind-lite-0.5b-q4",
+      "name": "DocMind Lite",
+      "description": "Fast local model for low-memory machines.",
+      "parameters": "0.5B",
+      "quantization": "Q4_K_M",
+      "filename": "docmind-0.5b-v2-Q4_K_M.gguf",
+      "url": "https://huggingface.co/docmind/docmind-lite-0.5b/resolve/main/docmind-0.5b-v2-Q4_K_M.gguf",
+      "sizeBytes": 417123456,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "recommendedRamGb": 8,
+      "minimumRamGb": 4,
+      "contextSize": 4096,
+      "version": "2.0",
+      "benchmarks": {
+        "citationF1": null,
+        "hallucinationRate": null,
+        "usefulAnswerRate": null
+      }
+    },
+    {
+      "id": "docmind-balanced-1.5b-q4",
+      "name": "DocMind Balanced",
+      "description": "Better answers, needs more memory.",
+      "parameters": "1.5B",
+      "quantization": "Q4_K_M",
+      "filename": "docmind-1.5b-v1-Q4_K_M.gguf",
+      "url": "https://huggingface.co/docmind/docmind-balanced-1.5b/resolve/main/docmind-1.5b-v1-Q4_K_M.gguf",
+      "sizeBytes": 1120000000,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "recommendedRamGb": 16,
+      "minimumRamGb": 8,
+      "contextSize": 8192,
+      "version": "1.0"
+    }
+  ]
+}

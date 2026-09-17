@@ -39,6 +39,8 @@ interface GraphState {
   matches: GraphMatch[]
   documents: GraphDocument[]
   context: { sections: number; characters: number; estimatedTokens: number } | null
+  /** Whatever actually generated the answer, straight from the pipeline. */
+  provider: { id: string; model: string } | null
   sources: Source[]
   answerChars: number
   stats: GenerationStats | null
@@ -59,6 +61,7 @@ const EMPTY = {
   matches: [] as GraphMatch[],
   documents: [] as GraphDocument[],
   context: null,
+  provider: null,
   sources: [] as Source[],
   answerChars: 0,
   stats: null,
@@ -161,7 +164,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         break
 
       case 'generation_started':
-        set({ stage: 'generating' })
+        set({ stage: 'generating', provider: { id: event.provider, model: event.model } })
         break
 
       case 'generation_token':

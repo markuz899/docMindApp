@@ -9,6 +9,7 @@ import {
   type Node
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { PROVIDER_KIND, PROVIDER_LABEL, type ProviderId } from '@shared/types'
 import { useGraphStore, type GraphStage } from '@/stores/graph'
 import { useAppStore } from '@/stores/app'
 import { formatNumber } from '@/lib/utils'
@@ -130,13 +131,15 @@ function useGraphElements(): { nodes: Node[]; edges: Edge[] } {
       edges.push(flowing(`sec-${section.sectionId}`, 'context', state.stage === 'context', 0.9))
     }
 
+    const providerId = (state.provider?.id ?? state.stats?.provider ?? 'none') as ProviderId
+    const providerKind = PROVIDER_KIND[providerId] ?? 'local'
     nodes.push({
       id: 'ai',
       type: 'stage',
       position: { x: COLUMN.ai, y: -32 },
       data: {
-        kicker: 'local ai',
-        label: state.stats?.model || 'local model',
+        kicker: providerKind === 'subscription' ? 'subscription ai' : providerKind === 'ollama' ? 'ollama' : 'local ai',
+        label: state.provider?.model || state.stats?.model || PROVIDER_LABEL[providerId] || 'model',
         detail:
           state.stage === 'generating'
             ? 'generating…'

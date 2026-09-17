@@ -56,6 +56,7 @@ interface AppState {
   closeViewer: () => void
   setModelStatus: (status: ModelStatus) => void
   refreshModelStatus: () => Promise<void>
+  refreshSettings: () => Promise<void>
   setIndexing: (progress: IndexProgress | null) => void
   updateSettings: (patch: unknown) => Promise<void>
   setError: (error: string | null) => void
@@ -168,6 +169,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ modelStatus: await window.docmind.models.status().then(unwrap) })
     } catch {
       /* the toolbar simply keeps the previous status */
+    }
+  },
+
+  async refreshSettings() {
+    try {
+      set({ settings: await window.docmind.settings.get().then(unwrap) })
+    } catch {
+      /* keep the settings already in memory */
     }
   },
 

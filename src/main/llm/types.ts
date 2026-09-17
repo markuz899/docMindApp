@@ -1,4 +1,4 @@
-import type { GenerationStats } from '@shared/types'
+import type { GenerationStats, ProviderId } from '@shared/types'
 
 export interface GenerateRequest {
   systemPrompt: string
@@ -15,7 +15,7 @@ export type GenerationEvent =
   | { type: 'error'; message: string }
 
 export interface ProviderDescription {
-  provider: 'local-gguf' | 'ollama'
+  provider: ProviderId
   model: string
   contextSize: number
   detail: string
@@ -39,6 +39,11 @@ export class LLMError extends Error {
       | 'context_too_large'
       | 'generation_failed'
       | 'unavailable'
+      | 'not_installed'
+      | 'not_authenticated'
+      | 'api_billing_risk'
+      | 'usage_limit'
+      | 'not_acknowledged'
   ) {
     super(message)
     this.name = 'LLMError'

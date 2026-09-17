@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { openDatabase, type DocMindDb } from './database/client'
 import { readSetting, writeSetting } from './database/repositories'
 import { ModelManager } from './llm/manager'
+import { createModelsService, type ModelsService } from './models/service'
 import { loadSettings, saveSettings } from './settings'
 import type { Settings } from '@shared/types'
 
@@ -11,6 +12,8 @@ const CURRENT_PROJECT_KEY = 'app.currentProjectId'
 export interface Services {
   db: DocMindDb
   models: ModelManager
+  /** Catalog, downloads and provider detection; ModelManager owns the loaded one. */
+  modelStore: ModelsService
   settings(): Settings
   updateSettings(patch: unknown): Promise<Settings>
   currentProjectId(): number | null
@@ -25,19 +28,24 @@ export function resolveDatabasePath(): string {
   return path.join(app.getPath('userData'), 'docmind.db')
 }
 
-export function createServices(databasePath = resolveDatabasePath()): Services {
+export function createServices(
+  databasePath = resolveDatabasePath(),
+  userDataDir = app.getPath('userData')
+): Services {
   const db = openDatabase(databasePath)
   let settings = loadSettings(db)
-  const models = new ModelManager(settings.model)
+  const models = new ModelManager(settings.model, settings.providers)
+  const modelStore = createModelsService(userDataDir, () => settings)
 
   return {
     db,
     models,
+    modelStore,
     databasePath,
     settings: () => settings,
     async updateSettings(patch: unknown) {
       settings = saveSettings(db, patch)
-      await models.applySettings(settings.model)
+      await models.applySettings(settings.model, settings.providers)
       return settings
     },
     currentProjectId() {
