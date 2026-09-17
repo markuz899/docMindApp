@@ -22,9 +22,10 @@ publish:
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 mac:
+  # dmg only: the .zip exists for electron-updater, which DocMind does not use,
+  # and it doubles what the release job has to upload.
   target:
     - dmg
-    - zip
   category: public.app-category.developer-tools
   # Unsigned: there is no Apple Developer identity. electron-builder still
   # ad-hoc signs, which is what arm64 needs to launch at all. Users must clear

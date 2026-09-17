@@ -77,7 +77,6 @@ jobs:
           if-no-files-found: error
           path: |
             dist/*.dmg
-            dist/*.zip
             dist/*.AppImage
             dist/*.deb
             dist/*.exe
@@ -85,6 +84,7 @@ jobs:
   publish:
     name: Publish release
     needs: build
+    timeout-minutes: 30
     # Ship whatever managed to build rather than losing every platform to one
     # failure; the release notes list what is actually attached.
     if: always() && startsWith(github.ref, 'refs/tags/')
@@ -112,10 +112,20 @@ jobs:
             'Unsigned builds: macOS needs its quarantine flag cleared and Windows needs' \
             "SmartScreen's Run anyway. The README has the exact steps." > notes.md
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/* --clobber 2>gh-error.txt || rc=$?
+          # </dev/null and a hard timeout: gh prompts on stderr and waits on
+          # stdin, so with stderr captured to a file an interactive prompt hangs
+          # invisibly - it held a runner for over an hour once.
+          if gh release view "$TAG" </dev/null >/dev/null 2>&1; then
+            timeout 20m gh release upload "$TAG" artifacts/* --clobber \
+              </dev/null 2>gh-error.txt || rc=$?
           else
-            gh release create "$TAG" artifacts/* --title "DocMind $TAG" --notes-file notes.md 2>gh-error.txt || rc=$?
+            timeout 20m gh release create "$TAG" artifacts/* \
+              --title "DocMind $TAG" --notes-file notes.md \
+              </dev/null 2>gh-error.txt || rc=$?
+          fi
+          if [ "${rc:-0}" -eq 124 ]; then
+            echo "::error::gh timed out after 20 minutes uploading the release"
+            exit 1
           fi
 
           # Job logs need admin rights to read, annotations do not: surface the
