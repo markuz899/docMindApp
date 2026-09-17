@@ -144,9 +144,14 @@ export class LocalGGUFProvider implements LLMProvider {
     }
 
     const { LlamaChatSession } = await loadLlamaModule()
+    // A context owns a fixed number of sequences (one by default) and
+    // `autoDisposeSequence` defaults to false, so disposing the session alone
+    // leaks the sequence: the next question then fails with "No sequences
+    // left" until the provider is rebuilt.
     const session = new LlamaChatSession({
       contextSequence: context.getSequence(),
-      systemPrompt: request.systemPrompt
+      systemPrompt: request.systemPrompt,
+      autoDisposeSequence: true
     })
 
     yield { type: 'start', provider: 'local-gguf', model: path.basename(this.loadedPath) }

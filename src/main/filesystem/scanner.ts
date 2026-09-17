@@ -3,6 +3,15 @@ import fs from 'node:fs/promises'
 import type { Dirent, Stats } from 'node:fs'
 import path from 'node:path'
 
+/**
+ * Relative paths are stored and displayed, so they must not depend on the OS
+ * that did the indexing: Windows would otherwise persist "docs\\b.mdx" and show
+ * it that way. Windows accepts forward slashes when the path is used again.
+ */
+function toPosix(relative: string): string {
+  return relative.split(path.sep).join('/')
+}
+
 export interface FileRef {
   absolutePath: string
   relativePath: string
@@ -63,13 +72,13 @@ export async function walkDocuments(root: string, options: ScanOptions): Promise
     try {
       entries = await fs.readdir(dir, { withFileTypes: true })
     } catch (error) {
-      skipped.push({ relativePath: path.relative(root, dir) || '.', reason: (error as Error).message })
+      skipped.push({ relativePath: toPosix(path.relative(root, dir)) || '.', reason: (error as Error).message })
       return
     }
 
     for (const entry of entries) {
       const absolutePath = path.join(dir, entry.name)
-      const relativePath = path.relative(root, absolutePath)
+      const relativePath = toPosix(path.relative(root, absolutePath))
 
       if (entry.isSymbolicLink()) continue
       if (entry.isDirectory()) {

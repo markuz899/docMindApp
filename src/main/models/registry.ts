@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { modelManifestSchema, type ModelManifest, type RegistryState } from '@shared/types'
 
 export interface RegistryOptions {
@@ -56,7 +57,8 @@ async function fetchManifest(url: string, options: RegistryOptions): Promise<Mod
   // file:// is allowed so a local fixture can be used during development;
   // anything reachable over the network must be https.
   if (url.startsWith('file://') || path.isAbsolute(url)) {
-    const file = url.startsWith('file://') ? new URL(url).pathname : url
+    // new URL(...).pathname yields "/C:/..." on Windows, which fs cannot open.
+    const file = url.startsWith('file://') ? fileURLToPath(url) : url
     return modelManifestSchema.parse(JSON.parse(fs.readFileSync(file, 'utf8')))
   }
   if (!url.startsWith('https://')) {

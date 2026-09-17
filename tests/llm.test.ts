@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { ModelManager } from '@main/llm/manager'
 import { LLMError, TokenQueue, type GenerateRequest, type GenerationEvent, type LLMProvider } from '@main/llm/types'
@@ -142,7 +143,7 @@ describe('GGUF inspection', () => {
   })
 
   it('rejects a file that is not a .gguf', async () => {
-    const info = await inspectGguf(new URL(import.meta.url).pathname)
+    const info = await inspectGguf(fileURLToPath(import.meta.url))
     expect(info.valid).toBe(false)
     expect(info.problem).toBe('not a .gguf file')
   })

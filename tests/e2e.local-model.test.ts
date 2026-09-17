@@ -104,4 +104,42 @@ describe.runIf(enabled)('local model end to end', () => {
     expect(done).toBe(true)
     expect(answer.trim().length).toBeGreaterThan(10)
   })
+
+  it.runIf(ggufPath !== '')(
+    'answers repeatedly without running out of context sequences',
+    { timeout: 300_000 },
+    async () => {
+      // A context owns a fixed number of sequences. If a generation does not
+      // release the one it took, the next question dies with "No sequences
+      // left" and the provider has to be rebuilt to recover - which looks, from
+      // the outside, like every other question failing.
+      const provider = new LocalGGUFProvider({
+        ...DEFAULT_SETTINGS.model,
+        provider: 'local-gguf',
+        modelPath: ggufPath,
+        contextSize: 2048,
+        maxTokens: 24
+      })
+      await provider.initialize()
+
+      for (const attempt of [1, 2, 3]) {
+        let text = ''
+        let finished = false
+        for await (const event of provider.generate({
+          systemPrompt: 'Answer in one short sentence.',
+          prompt: 'What does the route GET /me return?',
+          temperature: 0,
+          maxTokens: 24
+        })) {
+          if (event.type === 'token') text += event.token
+          if (event.type === 'done') finished = true
+          if (event.type === 'error') throw new Error(`attempt ${attempt}: ${event.message}`)
+        }
+        expect(finished, `attempt ${attempt} did not finish`).toBe(true)
+        expect(text.trim().length, `attempt ${attempt} produced nothing`).toBeGreaterThan(0)
+      }
+
+      await provider.unload()
+    }
+  )
 })

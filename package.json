@@ -1,6 +1,6 @@
 {
   "name": "docmind",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "productName": "DocMind",
   "description": "Ask your project's documentation. Everything stays local.",
   "main": "./out/main/index.js",

@@ -6,8 +6,12 @@ import { useAppStore } from '@/stores/app'
 export function TitleBar(): JSX.Element {
   const { project, busy, reindex, openFolder, setRoute } = useAppStore()
 
+  // backdrop-blur creates a stacking context, which traps any z-index set
+  // inside the bar. Without a stacking position of its own the header is
+  // painted under the workspace that follows it in the DOM, so the model
+  // dropdown would render beneath the page and swallow its own clicks.
   return (
-    <header className="drag-region flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 pl-[92px] pr-3 backdrop-blur-xl">
+    <header className="drag-region relative z-50 flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 pl-[92px] pr-3 backdrop-blur-xl">
       <div className="flex items-center gap-2">
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-white">
           D

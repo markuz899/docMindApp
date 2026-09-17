@@ -160,7 +160,7 @@ export function ProviderSelector(): JSX.Element {
                       setOpen(false)
                       void select(option.input)
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-elevated disabled:opacity-45 disabled:hover:bg-transparent"
+                    className="no-drag flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-elevated disabled:opacity-45 disabled:hover:bg-transparent"
                   >
                     <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', option.dot)} />
                     <span className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export function ProviderSelector(): JSX.Element {
               setOpen(false)
               setRoute('models')
             }}
-            className="w-full border-t border-border px-3 py-2 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
+            className="no-drag w-full border-t border-border px-3 py-2 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
           >
             Manage AI models…
           </button>
