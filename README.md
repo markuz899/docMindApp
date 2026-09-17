@@ -25,6 +25,51 @@ DOCUMENTATION FOLDER → PARSER → SECTIONS → SQLITE FTS5
 
 ---
 
+## Download
+
+Prebuilt applications are attached to every release:
+
+### **[⬇ Download the latest release](https://github.com/markuz899/docMindApp/releases/latest)**
+
+| Platform | File | Notes |
+|---|---|---|
+| macOS · Apple Silicon | `DocMind-<version>-mac-arm64.dmg` | M1/M2/M3/M4 |
+| macOS · Intel | `DocMind-<version>-mac-x64.dmg` | |
+| Windows | `DocMind-<version>-win-x64.exe` | NSIS installer, pick your own folder |
+| Linux | `DocMind-<version>-linux-x86_64.AppImage` | `chmod +x`, then run |
+| Linux · Debian/Ubuntu | `DocMind-<version>-linux-amd64.deb` | `sudo apt install ./<file>.deb` |
+
+Each build is produced on its own operating system by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) — never
+cross-compiled, because `better-sqlite3` and `node-llama-cpp` ship
+per-platform, per-architecture binaries.
+
+### The builds are not code-signed
+
+There is no Apple Developer ID and no Windows code-signing certificate, so both
+systems will warn about an unidentified developer. This is expected, and you
+should only bypass it because you trust this repository.
+
+**macOS** — the download is quarantined, and an unsigned app usually fails with
+*"DocMind is damaged and can't be opened"*. Clear the flag once, after moving
+the app to Applications:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/DocMind.app
+```
+
+**Windows** — SmartScreen shows *"Windows protected your PC"*. Choose
+**More info → Run anyway**.
+
+**Linux** — no warning; just make the AppImage executable:
+
+```bash
+chmod +x DocMind-*.AppImage && ./DocMind-*.AppImage
+```
+
+If you would rather not trust a binary, building from source takes one command
+— see [Install](#install) and [Packaging](#packaging).
+
 ## Requirements
 
 - **Node.js 20 or newer** (22 recommended — the build is verified on 22.19).
@@ -108,6 +153,26 @@ npm run dist      # installer / bundle for the current platform
 `electron-builder.yml` unpacks `*.node` and `node-llama-cpp` from the asar so
 the native binaries stay loadable. `npmRebuild` is off because the ABI swap is
 already handled by `scripts/native.mjs`.
+
+Releases are cut by pushing a tag; `.github/workflows/release.yml` builds each
+platform on its own runner and uploads the artifacts to the GitHub release:
+
+```bash
+npm version patch          # or minor / major
+git push --follow-tags
+```
+
+`scripts/after-pack.js` gives the macOS bundle a valid ad-hoc signature. Without
+it the app keeps Electron's own signature while carrying a renamed executable
+and a new `app.asar`, so the seal no longer matches and macOS reports the app as
+damaged. Ad-hoc signing does not make it *trusted* — that still needs an Apple
+Developer ID — but it makes the bundle internally valid.
+
+The app icon is generated from the renderer's own colour tokens:
+
+```bash
+python3 scripts/make-icons.py   # writes resources/icon.{png,ico,icns}
+```
 
 ---
 

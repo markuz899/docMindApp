@@ -1,9 +1,14 @@
 {
   "name": "docmind",
   "version": "0.1.0",
+  "productName": "DocMind",
   "description": "Ask your project's documentation. Everything stays local.",
   "main": "./out/main/index.js",
   "author": "DocMind",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markuz899/docMindApp.git"
+  },
   "license": "MIT",
   "private": true,
   "engines": {

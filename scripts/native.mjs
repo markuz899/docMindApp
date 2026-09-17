@@ -43,10 +43,16 @@ if (!fs.existsSync(cached)) {
       process.exit(1)
     }
   }
+  fs.rmSync(cached, { force: true })
   fs.copyFileSync(binary, cached)
 }
 
 fs.mkdirSync(path.dirname(binary), { recursive: true })
+// Replace, never overwrite in place. macOS caches a Mach-O's code signature
+// against the inode, so writing different bytes into the same file makes the
+// kernel SIGKILL anything that loads it (exit 137 on the first real call).
+// Unlinking first means every swap lands on a fresh inode.
+fs.rmSync(binary, { force: true })
 fs.copyFileSync(cached, binary)
 fs.writeFileSync(stamp, target)
 console.log(`native: better-sqlite3 -> ${target} ABI`)

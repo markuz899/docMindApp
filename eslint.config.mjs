@@ -18,8 +18,8 @@ export default tseslint.config(
     }
   },
   {
-    files: ['scripts/**/*.mjs', '*.cjs'],
-    languageOptions: { globals: { module: 'writable', require: 'readonly' } },
+    files: ['scripts/**/*.{mjs,cjs,js}', '*.cjs'],
+    languageOptions: { globals: { module: 'writable', exports: 'writable', require: 'readonly' } },
     rules: { '@typescript-eslint/no-require-imports': 'off' }
   }
 )

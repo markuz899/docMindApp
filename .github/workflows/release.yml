@@ -1,0 +1,81 @@
+name: Release
+
+# Builds a distributable on each OS natively. Cross-compiling is avoided on
+# purpose: better-sqlite3 and node-llama-cpp ship per-platform, per-arch
+# binaries, so every artifact is produced on the machine it targets.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS (Apple Silicon)
+            os: macos-14
+            flags: --mac --arm64
+          - label: macOS (Intel)
+            os: macos-13
+            flags: --mac --x64
+          - label: Linux (x64)
+            os: ubuntu-22.04
+            flags: --linux --x64
+          - label: Windows (x64)
+            os: windows-latest
+            flags: --win --x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Runs against the Node ABI; the packaging step swaps it back.
+      - name: Test
+        run: npm test
+
+      - name: Build renderer and main
+        run: npm run build
+
+      - name: Stage native modules for the Electron ABI
+        run: npm run native:electron
+
+      - name: Package and publish
+        run: npx electron-builder ${{ matrix.flags }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmind-${{ runner.os }}-${{ strategy.job-index }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.exe
