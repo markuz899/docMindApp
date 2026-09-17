@@ -102,36 +102,25 @@ jobs:
       - name: List what will be published
         run: ls -lh artifacts
 
-      - name: Create or update the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -u
-          printf '%s\n' \
-            'Unsigned builds: macOS needs its quarantine flag cleared and Windows needs' \
-            "SmartScreen's Run anyway. The README has the exact steps." > notes.md
+      # gh release create uploads assets sequentially and stalled past twenty
+      # minutes on ~480 MB twice, while downloading the same files took two.
+      # This action talks to the same API with retries and handles large
+      # binaries, which is the one thing gh would not do reliably here.
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: DocMind ${{ github.ref_name }}
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          body: |
+            Unsigned builds. macOS needs its quarantine flag cleared and Windows
+            needs SmartScreen's "Run anyway" — the README has the exact steps.
 
-          # </dev/null and a hard timeout: gh prompts on stderr and waits on
-          # stdin, so with stderr captured to a file an interactive prompt hangs
-          # invisibly - it held a runner for over an hour once.
-          if gh release view "$TAG" </dev/null >/dev/null 2>&1; then
-            timeout 20m gh release upload "$TAG" artifacts/* --clobber \
-              </dev/null 2>gh-error.txt || rc=$?
-          else
-            timeout 20m gh release create "$TAG" artifacts/* \
-              --title "DocMind $TAG" --notes-file notes.md \
-              </dev/null 2>gh-error.txt || rc=$?
-          fi
-          if [ "${rc:-0}" -eq 124 ]; then
-            echo "::error::gh timed out after 20 minutes uploading the release"
-            exit 1
-          fi
+            | Platform | File |
+            |---|---|
+            | macOS (Apple Silicon) | `.dmg` |
+            | Windows | `.exe` |
+            | Linux | `.AppImage` / `.deb` |
 
-          # Job logs need admin rights to read, annotations do not: surface the
-          # real reason so a failure here is diagnosable from the API.
-          if [ "${rc:-0}" -ne 0 ]; then
-            echo "::error::gh release failed ($rc): $(tr '\n' ' ' < gh-error.txt | head -c 800)"
-            exit "$rc"
-          fi
-          cat gh-error.txt
+            Intel Macs are not prebuilt; `npm run dist` on one produces a build.
