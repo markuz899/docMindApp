@@ -34,7 +34,6 @@ Prebuilt applications are attached to every release:
 | Platform | File | Notes |
 |---|---|---|
 | macOS · Apple Silicon | `DocMind-<version>-mac-arm64.dmg` | M1/M2/M3/M4 |
-| macOS · Intel | `DocMind-<version>-mac-x64.dmg` | |
 | Windows | `DocMind-<version>-win-x64.exe` | NSIS installer, pick your own folder |
 | Linux | `DocMind-<version>-linux-x86_64.AppImage` | `chmod +x`, then run |
 | Linux · Debian/Ubuntu | `DocMind-<version>-linux-amd64.deb` | `sudo apt install ./<file>.deb` |
@@ -43,6 +42,11 @@ Each build is produced on its own operating system by
 [`.github/workflows/release.yml`](.github/workflows/release.yml) — never
 cross-compiled, because `better-sqlite3` and `node-llama-cpp` ship
 per-platform, per-architecture binaries.
+
+**Intel Macs are not prebuilt.** That is a CI limitation, not a technical one:
+the `macos-13` runner never gets scheduled for this repository. The same
+constraint that rules out cross-compiling applies, so an Intel build has to come
+from an Intel machine — `npm run dist` on one produces it.
 
 ### The builds are not code-signed
 

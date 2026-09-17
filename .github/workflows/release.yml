@@ -1,8 +1,13 @@
 name: Release
 
-# Builds a distributable on each OS natively. Cross-compiling is avoided on
-# purpose: better-sqlite3 and node-llama-cpp ship per-platform, per-arch
-# binaries, so every artifact is produced on the machine it targets.
+# Each platform is built on its own runner: better-sqlite3 and node-llama-cpp
+# ship per-platform, per-arch binaries, so cross-compiling would produce an
+# installer whose native modules are for the wrong machine.
+#
+# Building and publishing are separate jobs on purpose. When every matrix job
+# published for itself, two runners finishing together raced to create the same
+# GitHub release and one of them failed. Now the artifacts are collected first
+# and a single job publishes them.
 
 on:
   push:
@@ -21,16 +26,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: macOS (Apple Silicon)
+          - id: mac-arm64
+            label: macOS (Apple Silicon)
             os: macos-14
             flags: --mac --arm64
-          - label: macOS (Intel)
-            os: macos-13
-            flags: --mac --x64
-          - label: Linux (x64)
+          - id: linux-x64
+            label: Linux (x64)
             os: ubuntu-22.04
             flags: --linux --x64
-          - label: Windows (x64)
+          - id: win-x64
+            label: Windows (x64)
             os: windows-latest
             flags: --win --x64
 
@@ -51,7 +56,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # Runs against the Node ABI; the packaging step swaps it back.
+      # Runs against the Node ABI; packaging swaps it back to Electron's.
       - name: Test
         run: npm test
 
@@ -61,21 +66,51 @@ jobs:
       - name: Stage native modules for the Electron ABI
         run: npm run native:electron
 
-      - name: Package and publish
-        run: npx electron-builder ${{ matrix.flags }} --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package
+        run: npx electron-builder ${{ matrix.flags }} --publish never
 
-      - name: Upload artifacts for inspection
-        if: always()
+      - name: Collect installers
         uses: actions/upload-artifact@v4
         with:
-          name: docmind-${{ runner.os }}-${{ strategy.job-index }}
+          name: installers-${{ matrix.id }}
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: error
           path: |
             dist/*.dmg
             dist/*.zip
             dist/*.AppImage
             dist/*.deb
             dist/*.exe
+
+  publish:
+    name: Publish release
+    needs: build
+    # Ship whatever managed to build rather than losing every platform to one
+    # failure; the release notes list what is actually attached.
+    if: always() && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: List what will be published
+        run: ls -lh artifacts
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/* --clobber
+          else
+            gh release create "$TAG" artifacts/* \
+              --title "DocMind $TAG" \
+              --notes "Unsigned builds. macOS needs the quarantine flag cleared and Windows needs SmartScreen's \"Run anyway\" - see the README for the exact steps."
+          fi

@@ -139,8 +139,13 @@ export async function downloadModel(options: DownloadOptions): Promise<ManagedMo
       emit('downloading')
     }
 
+    // Wait for 'close', not just 'finish': Windows refuses to rename or delete
+    // a file whose descriptor is still open, so an early rename would fail with
+    // EPERM on every download.
     await new Promise<void>((resolve, reject) => {
-      sink!.end((error?: Error | null) => (error ? reject(error) : resolve()))
+      sink!.once('close', () => resolve())
+      sink!.once('error', reject)
+      sink!.end()
     })
 
     emit('verifying', 'Verifying SHA256…', true)
@@ -166,7 +171,7 @@ export async function downloadModel(options: DownloadOptions): Promise<ManagedMo
       latestVersion: model.version
     }
   } catch (error) {
-    sink?.destroy()
+    await closeQuietly(sink)
     fs.rmSync(partial, { force: true })
     // A model directory that never held a finished install is not an install.
     if (!fs.existsSync(target) && !fs.existsSync(path.join(dir, METADATA_FILENAME))) {
@@ -183,4 +188,14 @@ export async function downloadModel(options: DownloadOptions): Promise<ManagedMo
     emit(failure.code === 'cancelled' ? 'cancelled' : 'error', failure.message, true)
     throw failure
   }
+}
+
+/** Releases the file descriptor before the caller deletes the partial file. */
+async function closeQuietly(sink: fs.WriteStream | null): Promise<void> {
+  if (!sink || sink.destroyed) return
+  await new Promise<void>((resolve) => {
+    sink.once('close', () => resolve())
+    sink.once('error', () => resolve())
+    sink.destroy()
+  })
 }
